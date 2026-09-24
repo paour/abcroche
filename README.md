@@ -27,7 +27,7 @@ links that unfurl with the score.
 ## Quick start
 
 ```sh
-docker run -d -p 8000:8000 -v abcroche-data:/data ghcr.io/OWNER/abcroche:latest
+docker run -d -p 8000:8000 -v abcroche-data:/data ghcr.io/paour/abcroche:latest
 ```
 
 Open <http://localhost:8000/?edit>. Or with Compose: `docker compose up -d`

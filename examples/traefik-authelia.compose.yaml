@@ -15,7 +15,7 @@
 # the header they send.
 services:
   abcroche:
-    image: ghcr.io/OWNER/abcroche:latest
+    image: ghcr.io/paour/abcroche:latest
     restart: unless-stopped
     environment:
       PUBLIC_URL: https://music.example.com
