@@ -1,0 +1,26 @@
+{
+  "name": "abcroche",
+  "version": "0.1.0",
+  "description": "A tiny ABC-notation score server: view, edit, embed and share sheet music, with server-rendered SVG/PNG and link previews.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "keywords": ["abc", "abc-notation", "music", "sheet-music", "score", "abcjs", "notion", "embed"],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "vendor": "node scripts/vendor.mjs",
+    "dev": "node --env-file-if-exists=.env --watch-path=server.mjs --watch-path=render.mjs --watch-path=site --disable-warning=ExperimentalWarning server.mjs",
+    "start": "node --disable-warning=ExperimentalWarning server.mjs",
+    "test": "node --test --test-reporter=spec --disable-warning=ExperimentalWarning"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "2.6.2",
+    "abcjs": "6.7.1",
+    "jsdom": "26.1.0"
+  },
+  "devDependencies": {
+    "jquery": "3.7.1"
+  }
+}

@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>abcroche</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/vendor/abcjs-audio.css">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main id="view">
+  <div id="paper"></div>
+  <div id="audio"></div>
+  <p id="empty" hidden>No tune here yet. <a href="/?edit">Open the editor</a> to write or import one.</p>
+</main>
+
+<section id="editor" hidden>
+  <header class="meta">
+    <div class="row top">
+      <button id="toggle-library" type="button" class="quiet" aria-pressed="false" aria-controls="library">Tunes</button>
+      <input id="f-title" class="title" placeholder="Title" aria-label="Title">
+      <input id="f-composer" placeholder="Composer" aria-label="Composer">
+      <span class="spacer"></span>
+      <span id="save-state" aria-live="polite"></span>
+      <div id="file-actions" class="file-actions">
+        <button id="new" type="button" class="quiet">New</button>
+        <button id="import" type="button" class="quiet" title="MusicXML (.musicxml, .xml, .mxl) from MuseScore, Sibelius, Finale, Dorico…">Import MusicXML…</button>
+        <input id="import-file" type="file" accept=".musicxml,.xml,.mxl,application/vnd.recordare.musicxml+xml,application/vnd.recordare.musicxml" hidden>
+        <button id="toggle-source" type="button" class="quiet" aria-pressed="false">ABC source</button>
+        <button id="save-online" type="button" class="primary" hidden title="Save to this server under a name made from the title">Save online</button>
+        <a id="sign-in" class="quiet-link" hidden>Sign in</a>
+      </div>
+      <button id="more" type="button" class="quiet phone-only" aria-expanded="false" aria-controls="more-sheet" aria-label="More options">⋯</button>
+    </div>
+    <div id="tune-settings" class="row tune-settings">
+      <label>Key <select id="f-key"></select></label>
+      <label>Time <select id="f-meter"></select></label>
+      <label>Clef <select id="f-clef"></select></label>
+      <label>Tempo <input id="f-tempo" type="number" min="20" max="400" step="1" placeholder="—"> bpm</label>
+      <div id="part" class="segmented" role="group" aria-label="Transposition">
+        <button type="button" data-tr="" aria-pressed="true" title="Concert pitch">Concert</button>
+        <button type="button" data-tr="bb" aria-pressed="false" title="Written for a B♭ instrument (+2 semitones)">B♭</button>
+        <button type="button" data-tr="eb" aria-pressed="false" title="Written for an E♭ instrument (+9 semitones)">E♭</button>
+        <button type="button" id="part-low" aria-pressed="false" title="Write the part an octave lower (E♭: −3, B♭: −10)">↓ 8ve</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Phones: the less frequent controls move in here (see editor.js). -->
+  <div id="more-sheet" class="sheet" hidden>
+    <section><h2>Tune</h2><div id="sheet-tune"></div></section>
+    <section><h2>Note names</h2><div id="sheet-display"></div></section>
+    <section><h2>File</h2><div id="sheet-file"></div></section>
+    <section><h2>Share and embed</h2><div id="sheet-embed"></div></section>
+  </div>
+
+  <div class="work">
+    <aside id="library" aria-label="Saved tunes" hidden>
+      <input id="lib-filter" type="search" placeholder="Search tunes" aria-label="Search tunes">
+      <h3 id="lib-local-heading" class="lib-heading" hidden>In this browser</h3>
+      <ul id="lib-list" class="tune-list"></ul>
+      <p id="lib-empty" hidden></p>
+      <section id="online-section" hidden>
+        <h3 class="lib-heading">Online <span id="online-user"></span></h3>
+        <ul id="srv-list" class="tune-list"></ul>
+        <p id="srv-empty" hidden></p>
+      </section>
+    </aside>
+    <div id="preview-frame">
+      <div id="preview-paper"></div>
+      <div id="caret" hidden></div>
+      <div id="preview-audio"></div>
+    </div>
+    <div id="source" class="source" hidden>
+      <textarea id="abc" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="ABC source"></textarea>
+      <pre id="warnings" aria-live="polite"></pre>
+      <details id="abc-help" class="abc-help">
+        <summary>ABC quick reference</summary>
+        <div class="help-body">
+          <h4>Header</h4>
+          <p>One field per line; <code>X:</code> first, <code>K:</code> last.</p>
+          <dl>
+            <dt><code>T:Title</code> <code>C:Composer</code></dt><dd>title, composer</dd>
+            <dt><code>M:4/4</code> <code>M:6/8</code> <code>M:C</code> <code>M:C|</code></dt><dd>time signature (<code>M:none</code> = free)</dd>
+            <dt><code>L:1/8</code></dt><dd>unit note length: a plain letter lasts this long</dd>
+            <dt><code>Q:1/4=120</code></dt><dd>tempo</dd>
+            <dt><code>K:G</code> <code>K:Am</code> <code>K:Ddor</code> <code>K:Bb clef=bass</code></dt><dd>key (last header line); modes and clef too</dd>
+          </dl>
+
+          <h4>Notes</h4>
+          <dl>
+            <dt><code>C D E F G A B</code></dt><dd>octave from middle C</dd>
+            <dt><code>c d e … b</code></dt><dd>one octave up; <code>c'</code> two up</dd>
+            <dt><code>C, B,,</code></dt><dd>octaves down</dd>
+            <dt><code>^F _B =F ^^F __B</code></dt><dd>sharp, flat, natural, doubles; they last to the end of the bar</dd>
+          </dl>
+
+          <h4>Lengths <span>(× the <code>L:</code> unit)</span></h4>
+          <dl>
+            <dt><code>A2 A3 A4</code></dt><dd>2×, 3× (dotted if L is a half), 4×</dd>
+            <dt><code>A/ A/2 A// A3/2</code></dt><dd>half, half, quarter, dotted</dd>
+            <dt><code>A&gt;B A&lt;B</code></dt><dd>broken rhythm: dotted + short, short + dotted</dd>
+            <dt><code>z z2 Z Z4</code></dt><dd>rest, longer rest, whole-bar rest, 4 bars' rest (<code>x</code> = invisible)</dd>
+            <dt><code>AB c</code></dt><dd>notes written together are beamed; a space breaks the beam</dd>
+          </dl>
+
+          <h4>Groups</h4>
+          <dl>
+            <dt><code>(3ABC</code></dt><dd>triplet: 3 notes in the time of 2</dd>
+            <dt><code>(3:2:2A2B</code></dt><dd>2 notes in a triplet: exact 2:1 swing</dd>
+            <dt><code>A-A</code> <code>(ABC)</code></dt><dd>tie; slur</dd>
+            <dt><code>[CEG]2</code></dt><dd>stacked chord (length after the bracket)</dd>
+            <dt><code>{g}A {/g}A</code></dt><dd>grace note; acciaccatura</dd>
+          </dl>
+
+          <h4>Bars and repeats</h4>
+          <dl>
+            <dt><code>| || |] [|</code></dt><dd>bar, double, final, thick-thin</dd>
+            <dt><code>|: :| ::</code></dt><dd>start repeat, end repeat, both</dd>
+            <dt><code>|1 … :|2 … |]</code></dt><dd>first and second endings (<code>[1</code> <code>[2</code> also work)</dd>
+          </dl>
+
+          <h4>Text over the music</h4>
+          <dl>
+            <dt><code>"Am7"A2 "G/B"B2</code></dt><dd>chord symbols (also played by the player)</dd>
+            <dt><code>"^text" "_text"</code></dt><dd>annotation above / below the next note</dd>
+            <dt><code>!p! !mf! !f! !ff!</code></dt><dd>dynamics</dd>
+            <dt><code>!crescendo(! … !crescendo)!</code></dt><dd>hairpin (<code>!diminuendo(!</code> likewise)</dd>
+            <dt><code>.A ~A !trill!A !fermata!A !accent!A</code></dt><dd>staccato, roll, trill, fermata, accent</dd>
+            <dt><code>!segno! !coda! "^D.C." "^Fine"</code></dt><dd>navigation marks</dd>
+          </dl>
+
+          <h4>Lyrics</h4>
+          <p>A <code>w:</code> line under a line of music, one syllable per note:</p>
+          <pre>GA Bc d2 d2 |
+w: Twin-kle twin-kle lit-tle star</pre>
+          <dl>
+            <dt><code>-</code> <code>_</code> <code>*</code> <code>|</code> <code>~</code></dt><dd>split a word, hold a syllable, skip a note, jump to the next bar, join words on one note</dd>
+          </dl>
+
+          <h4>Layout and more</h4>
+          <dl>
+            <dt>new line</dt><dd>a new line of music; <strong>a blank line ends the tune</strong></dd>
+            <dt><code>% text</code></dt><dd>comment</dd>
+            <dt><code>[K:D]</code> <code>[M:3/4]</code></dt><dd>change key or time mid-tune</dd>
+            <dt><code>V:1</code> … <code>V:2 clef=bass</code></dt><dd>several voices / staves</dd>
+            <dt><code>%%MIDI program 73</code></dt><dd>playback instrument (General MIDI number, 0 = piano)</dd>
+          </dl>
+          <p class="help-more"><a href="https://abcnotation.com/wiki/abc:standard:v2.1" target="_blank" rel="noopener">Full ABC 2.1 standard ↗</a></p>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <p id="status" aria-live="polite"></p>
+
+  <div class="row palette">
+    <div class="group" id="palette-durations" role="group" aria-label="Note length"></div>
+    <div class="group" id="palette-notes" role="group" aria-label="Notes"></div>
+    <div class="group" id="palette-bars" role="group" aria-label="Bars"></div>
+    <div class="group" role="group" aria-label="Chord symbol">
+      <input id="chord" placeholder="Chord, e.g. Am7" aria-label="Chord symbol" size="9">
+      <button id="chord-apply" type="button">Set</button>
+    </div>
+    <div class="group" role="group" aria-label="Edit">
+      <button id="delete" type="button" title="Delete (Backspace)">⌫</button>
+      <button id="undo" type="button" title="Undo (Ctrl+Z)">↶</button>
+      <button id="redo" type="button" title="Redo (Ctrl+Shift+Z)">↷</button>
+      <button id="copy-notes" type="button" title="Copy the selection (Ctrl+C)">Copy</button>
+      <button id="cut-notes" type="button" title="Cut the selection (Ctrl+X)">Cut</button>
+      <button id="paste-notes" type="button" title="Paste (Ctrl+V): replaces the selection, or goes in at the blue line">Paste</button>
+    </div>
+  </div>
+
+  <div class="keyboard">
+    <button id="oct-down" type="button" title="Lower octave" aria-label="Lower octave">◀</button>
+    <div id="keys"></div>
+    <button id="oct-up" type="button" title="Higher octave" aria-label="Higher octave">▶</button>
+    <span id="oct-label"></span>
+    <div id="note-names" class="segmented" role="group" aria-label="Note names">
+      <button type="button" data-names="letters" aria-pressed="true">C D E</button>
+      <button type="button" data-names="solfege" aria-pressed="false">Do Ré Mi</button>
+    </div>
+  </div>
+
+  <footer id="embed" class="row embed">
+    <label title="Embed: the interactive page (links unfurl with a preview). Image: a picture of the score, for anywhere that takes an image link.">Link
+      <select id="opt-link">
+        <option value="">Embed</option>
+        <option value="png">PNG image</option>
+        <option value="svg">SVG image</option>
+      </select></label>
+    <label>Scale <input id="opt-scale" type="number" min="0.3" max="3" step="0.1" placeholder="1"></label>
+    <label>Width <input id="opt-width" type="number" min="200" max="2000" step="10" placeholder="auto"></label>
+    <label><input id="opt-play" type="checkbox"> Play button</label>
+    <label><input id="opt-transparent" type="checkbox"> Transparent</label>
+    <label title="Transposition for this link; “As shown” follows the editor">Part
+      <select id="opt-tr">
+        <option value="">As shown</option>
+        <option value="c">Concert</option>
+        <option value="bb">B♭</option>
+        <option value="eb">E♭</option>
+        <option value="bb-low">B♭ ↓8ve</option>
+        <option value="eb-low">E♭ ↓8ve</option>
+      </select></label>
+    <label><input id="opt-title" type="checkbox" checked> Title</label>
+    <label><input id="opt-tempo" type="checkbox" checked> Tempo</label>
+    <label title="A small ✎ in the embed that opens this tune in the editor"><input id="opt-editbtn" type="checkbox"> Edit button</label>
+    <div id="link-kind" class="segmented" role="group" aria-label="Link type" hidden>
+      <button type="button" data-kind="named" aria-pressed="true" title="Short link to the online song; shows its latest saved version">Named</button>
+      <button type="button" data-kind="tune" aria-pressed="false" title="The whole tune packed into the link; never changes">Tune in link</button>
+    </div>
+    <span id="link-note"></span>
+    <div class="link-line">
+      <output id="embed-url"></output>
+      <a id="open-view" target="_blank" rel="noopener">Open view</a>
+      <button id="copy" type="button" class="primary">Copy link</button>
+    </div>
+  </footer>
+</section>
+
+<script src="/vendor/abcjs-basic-min.js"></script>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,439 @@
+/* `hidden` must win over any display rule below (e.g. .segmented). */
+[hidden] { display: none !important; }
+
+:root {
+  --bg: #fff;
+  --fg: #000;
+  --muted: #6b6b6b;
+  --line: #e3e3e3;
+  --accent: #2383e2;
+  --warn: #b35900;
+  --playing: #2383e2;
+  color-scheme: light;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html.transparent, html.transparent body { background: transparent; }
+
+/* --- view --------------------------------------------------------------- */
+
+#view { position: relative; padding: 4px; }
+
+/* Optional ✎ in embeds (editbtn=1): unobtrusive until hovered. */
+#edit-button {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  color: #37352f;
+  background: rgba(241, 241, 239, 0.9);
+  font-size: 15px;
+  text-decoration: none;
+  opacity: 0.45;
+  transition: opacity 0.15s;
+}
+#edit-button:hover, #edit-button:focus-visible { opacity: 1; }
+/* Screen-only controls: no edit button or player on paper. */
+@media print { #edit-button, #audio, #preview-audio { display: none !important; } }
+
+#paper { width: 100%; }
+
+#audio { max-width: 480px; margin-top: 4px; }
+#audio[hidden] { display: none; }
+
+#empty { color: var(--muted); margin: 8px; }
+#empty a { color: var(--accent); }
+
+/* Currently sounding notes during playback. */
+.abc-playing { fill: var(--playing); }
+
+/* Make the abcjs synth control blend in rather than look like a widget. */
+.abcjs-inline-audio {
+  height: 28px;
+  padding: 0 4px;
+  border-radius: 6px;
+  background: #f1f1ef;
+  color: #37352f;
+}
+.abcjs-inline-audio .abcjs-btn g { fill: #37352f; stroke: #37352f; }
+.abcjs-inline-audio .abcjs-btn:hover g { fill: var(--accent); stroke: var(--accent); }
+.abcjs-inline-audio .abcjs-midi-clock { color: #37352f; }
+.abcjs-inline-audio .abcjs-midi-progress-background { background-color: #d9d9d6; }
+.abcjs-inline-audio .abcjs-midi-progress-indicator { background-color: #37352f; }
+
+/* --- editor ------------------------------------------------------------- */
+
+html.editing, html.editing body { height: 100%; background: #f7f7f5; }
+
+#editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  padding: 10px 12px;
+  box-sizing: border-box;
+}
+#editor[hidden] { display: none; }
+#editor.dropping { outline: 3px dashed var(--accent); outline-offset: -6px; }
+
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.row label { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.spacer { flex: 1; }
+
+#editor input, #editor select, #editor button { font: inherit; }
+#editor input:not([type="checkbox"]), #editor select {
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #fff;
+}
+#editor input[type="number"] { width: 4.5em; }
+.meta .title { font-weight: 600; width: 14em; }
+
+#editor button {
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--fg);
+  cursor: pointer;
+  line-height: 1.2;
+}
+#editor button:hover { border-color: #c9c9c6; background: #fbfbfa; }
+#editor button:disabled { opacity: 0.4; cursor: default; }
+#editor button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+#editor button.quiet { border-color: transparent; background: transparent; color: #37352f; }
+#editor button.quiet:hover { background: #ebebea; }
+#editor button.quiet[aria-pressed="true"] { background: #e0e0de; color: #37352f; }
+#editor button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.work { flex: 1; display: flex; gap: 10px; min-height: 180px; }
+
+#preview-frame {
+  position: relative;
+  flex: 3;
+  min-width: 0;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+/* Checkerboard so a transparent embed is visibly transparent. */
+#preview-frame.transparent {
+  background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0 / 16px 16px;
+}
+#preview-paper svg { cursor: pointer; }
+#preview-paper svg:focus, #preview-paper svg *:focus { outline: none; }
+#preview-audio { max-width: 480px; margin-top: 6px; }
+#preview-audio[hidden] { display: none; }
+
+#caret {
+  position: absolute;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+  pointer-events: none;
+  animation: blink 1.1s steps(2, start) infinite;
+}
+#caret[hidden] { display: none; }
+.sel-box {
+  position: absolute;
+  background: rgba(35, 131, 226, 0.14);
+  border: 1px solid rgba(35, 131, 226, 0.55);
+  border-radius: 5px;
+  pointer-events: none;
+}
+#preview-paper.hide-tempo .abcjs-tempo { display: none; }
+@keyframes blink { to { visibility: hidden; } }
+
+#save-state { color: var(--muted); font-size: 12px; white-space: nowrap; }
+#save-state.error { color: #c4291c; }
+
+/* Saved tunes */
+#library {
+  flex: 0 0 230px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+#library[hidden] { display: none; }
+#lib-filter { width: 100%; box-sizing: border-box; }
+/* Both lists (this browser / online) share one look. */
+.tune-list { margin: 0; padding: 0; list-style: none; }
+.tune-list li { display: flex; align-items: stretch; border-radius: 6px; }
+.tune-list li:hover { background: #ebebea; }
+#editor .lib-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 6px 8px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+#editor .lib-open:hover { background: transparent; }
+#editor .lib-open[aria-current="true"] { background: #e3edf9; }
+.lib-title { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.lib-meta { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 11px; }
+#editor .lib-delete {
+  padding: 0 9px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 16px;
+  opacity: 0.5;
+}
+.tune-list li:hover .lib-delete, #editor .lib-delete:focus-visible { opacity: 1; }
+#editor .lib-delete:hover { color: #c4291c; background: transparent; }
+@media (hover: none) { #editor .lib-delete { opacity: 1; } }
+#lib-empty, #srv-empty { margin: 4px 8px; color: var(--muted); font-size: 12px; }
+#library { overflow: auto; }
+.lib-heading { margin: 10px 8px 2px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+#online-user { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.quiet-link { padding: 4px 9px; color: var(--accent); cursor: pointer; text-decoration: none; }
+.quiet-link:hover { text-decoration: underline; }
+#link-note { color: var(--warn); font-size: 12px; }
+
+.source { flex: 2; display: flex; flex-direction: column; gap: 6px; min-width: 0; min-height: 0; overflow: hidden; }
+.source[hidden] { display: none; }
+
+#abc {
+  flex: 1;
+  resize: none;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+#abc:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+#warnings {
+  margin: 0;
+  max-height: 8em;
+  overflow: auto;
+  color: var(--warn);
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+}
+#warnings:empty { display: none; }
+
+/* ABC quick reference under the source */
+.abc-help { flex: none; border: 1px solid var(--line); border-radius: 8px; background: #fff; font-size: 12px; }
+/* <details> doesn't take part in flex sizing, so cap the body instead. */
+.abc-help summary { padding: 6px 10px; cursor: pointer; color: #37352f; font-weight: 500; user-select: none; }
+.abc-help .help-body { max-height: min(40vh, 360px); overflow: auto; padding: 0 10px 10px; line-height: 1.45; }
+.abc-help h4 { margin: 10px 0 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.abc-help h4 span { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.abc-help p { margin: 2px 0 4px; }
+.abc-help dl { display: grid; grid-template-columns: minmax(8em, max-content) 1fr; gap: 3px 10px; margin: 0; }
+.abc-help dt { margin: 0; }
+.abc-help dd { margin: 0; color: #5f5e5b; }
+.abc-help code, .abc-help pre { font: 11.5px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: #f3f3f1; border-radius: 3px; padding: 0 3px; }
+.abc-help pre { margin: 4px 0; padding: 5px 7px; white-space: pre-wrap; }
+.abc-help .help-more { margin-top: 10px; }
+.abc-help a { color: var(--accent); }
+@media (max-width: 720px) {
+  .abc-help dl { grid-template-columns: 1fr; gap: 0; }
+  .abc-help dd { margin-bottom: 4px; }
+}
+
+#status { margin: 0; min-height: 1.4em; color: var(--muted); font-size: 13px; }
+#status.error { color: #c4291c; }
+
+.palette .group { display: inline-flex; align-items: center; gap: 3px; }
+.palette .group + .group { padding-left: 12px; border-left: 1px solid var(--line); }
+.palette button.dur { display: inline-flex; padding: 2px 6px; }
+.palette button.dot { font-weight: 800; font-size: 20px; line-height: 0.9; }
+.palette .bar-btn { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; min-width: 2.4em; }
+
+/* Piano: white keys in a row, black keys positioned over the gaps. */
+.keyboard { display: flex; align-items: stretch; gap: 6px; }
+.keyboard > button { padding: 0 6px; }
+#oct-label { align-self: center; color: var(--muted); font-size: 12px; min-width: 5.5em; }
+#keys {
+  position: relative;
+  flex: 1;
+  max-width: 720px;
+  height: 104px;
+  display: grid;
+  grid-template-columns: repeat(var(--whites), 1fr);
+  user-select: none;
+  touch-action: manipulation;
+}
+#editor .key { border-radius: 0 0 5px 5px; padding: 0; cursor: pointer; }
+#editor .key.white {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 5px;
+  margin-right: -1px;
+  border: 1px solid #c9c9c6;
+  background: #fff;
+  color: #9b9a97;
+  font-size: 11px;
+}
+#editor .key.black {
+  position: absolute;
+  top: 0;
+  left: calc(var(--pos) * 100% / var(--whites));
+  width: calc(100% / var(--whites) * 0.62);
+  height: 62%;
+  transform: translateX(-50%);
+  border: 1px solid #1f1f1f;
+  background: #2f2f2f;
+  z-index: 1;
+}
+#editor .key.white:hover { background: #eef5fd; }
+#editor .key.black:hover { background: #4a4a4a; }
+#editor .key.white:active, #editor .key.white.on { background: #cfe3fa; }
+#editor .key.black:active, #editor .key.black.on { background: var(--accent); border-color: var(--accent); }
+
+/* Two-way switch (letter names / solfège) */
+.segmented { display: inline-flex; align-self: center; }
+#editor .segmented button { border-radius: 0; font-size: 12px; padding: 3px 8px; white-space: nowrap; }
+#editor .segmented button + button { margin-left: -1px; }
+#editor .segmented button:first-child { border-radius: 6px 0 0 6px; }
+#editor .segmented button:last-child { border-radius: 0 6px 6px 0; }
+
+.embed { padding-top: 8px; border-top: 1px solid var(--line); font-size: 13px; }
+/* Last line: the link, then its actions at the right. */
+.link-line { flex-basis: 100%; display: flex; align-items: center; gap: 12px; min-width: 0; }
+#embed-url {
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+  font: 11px/1.3 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+  max-height: 2.6em;
+  overflow: auto;
+}
+
+/* With a mouse or trackpad on a wide screen, the keyboard shortcuts
+   (Backspace, Ctrl+Z / Shift+Ctrl+Z, Ctrl+C / X / V) replace the edit
+   buttons. Touch screens and phones keep them. */
+@media (pointer: fine) and (min-width: 721px) {
+  .palette .group[aria-label="Edit"] { display: none; }
+}
+
+/* --- header (wide screens: two rows) ------------------------------------ */
+
+.meta { display: flex; flex-direction: column; gap: 6px; }
+.file-actions { display: inline-flex; align-items: center; gap: 2px; }
+.phone-only, .sheet { display: none; }
+#editor button, #editor .key { touch-action: manipulation; }
+
+/* --- phones ---------------------------------------------------------------- */
+
+/* Keep in sync with the `phone` media query in editor.js. */
+@media (max-width: 720px), (max-height: 500px) and (pointer: coarse) {
+  /* The editor fills the screen: bar on top, score in the middle, note
+     entry pinned at the bottom. Nothing scrolls but the score. */
+  html.editing, html.editing body { height: 100%; overflow: hidden; }
+  #editor { height: 100vh; height: 100dvh; padding: 8px 8px max(8px, env(safe-area-inset-bottom)); gap: 6px; }
+
+  .phone-only { display: inline-flex; }
+  .meta .row.top { flex-wrap: nowrap; gap: 6px; }
+  .meta .title { flex: 1; min-width: 0; width: auto; }
+  #more { font-size: 20px; line-height: 1; padding: 4px 10px; }
+  #save-state:not(.error) { display: none; }
+  #save-state.error { position: fixed; left: 8px; right: 8px; bottom: 4px; text-align: center; z-index: 5; }
+
+  /* iOS zooms into any field under 16px; don't. */
+  #editor input:not([type="checkbox"]), #editor select, #abc { font-size: 16px; }
+
+  .work { flex: 1; min-height: 0; flex-direction: column; gap: 6px; }
+  #preview-frame { flex: 1; min-height: 0; padding: 6px; }
+  .source { flex: 1; min-height: 0; }
+  .source #abc { min-height: 0; }
+  #warnings { max-height: 4em; }
+
+  #status { font-size: 12px; line-height: 1.3; min-height: 2.6em; }
+
+  /* Palette: compact, most-used first. */
+  .palette { gap: 4px 6px; }
+  .palette .group + .group { padding-left: 0; border-left: 0; }
+  #palette-durations { order: 1; }
+  .palette .group[aria-label="Edit"] { order: 2; margin-left: auto; }
+  #palette-notes { order: 3; }
+  #palette-bars { order: 4; }
+  .palette .group[aria-label="Chord symbol"] { order: 5; }
+  #editor .palette button { min-height: 34px; padding: 3px 7px; }
+  #editor .palette button.dur { padding: 2px 5px; }
+  .palette .bar-btn { min-width: 1.9em; }
+  #chord { width: 7.5em; }
+
+  /* One octave, keys wide enough for thumbs. */
+  .keyboard { gap: 4px; }
+  #editor .keyboard > button { width: 34px; padding: 0; }
+  #keys { height: 104px; max-width: none; }
+  #oct-label { display: none; }
+  #editor .key.white { font-size: 11px; }
+
+  /* Tunes: a drawer over the editor. */
+  #library {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(85vw, 320px);
+    padding: 12px 10px;
+    background: #f7f7f5;
+    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.25);
+    z-index: 30;
+  }
+
+  /* "⋯" sheet: everything that isn't note entry. */
+  .sheet {
+    position: fixed;
+    inset: auto 0 0 0;
+    max-height: 82dvh;
+    overflow: auto;
+    padding: 6px 14px max(16px, env(safe-area-inset-bottom));
+    background: #fff;
+    border-radius: 14px 14px 0 0;
+    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.25);
+    z-index: 20;
+  }
+  .sheet:not([hidden]) { display: block; }
+  .sheet section { padding: 10px 0; }
+  .sheet section + section { border-top: 1px solid var(--line); }
+  .sheet h2 { margin: 0 0 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  #sheet-tune { display: flex; flex-direction: column; gap: 8px; }
+  #sheet-tune > #f-composer { width: 100%; box-sizing: border-box; }
+  .sheet .tune-settings { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+  .sheet .tune-settings label { justify-content: space-between; }
+  .sheet .tune-settings select { flex: 1; min-width: 0; margin-left: 6px; }
+  .sheet .tune-settings #part { grid-column: 1 / -1; justify-self: start; }
+  #editor .sheet .segmented button { font-size: 14px; padding: 6px 12px; }
+  .sheet .file-actions { flex-wrap: wrap; gap: 6px; }
+  #editor .sheet .file-actions button { border: 1px solid var(--line); background: #fff; }
+  #editor .sheet .file-actions button[aria-pressed="true"] { background: #e0e0de; }
+  #editor .sheet .file-actions #save-online { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .sheet .embed { border-top: 0; padding-top: 0; gap: 10px 14px; }
+  .sheet .link-line { flex-wrap: wrap; }
+  .sheet #embed-url { flex-basis: 100%; }
+  .sheet #copy { flex: 1; min-height: 40px; }
+}
+
+/* Phones in landscape: little height to spare. */
+@media (max-height: 500px) and (pointer: coarse) {
+  #keys { height: 72px; }
+  #status { min-height: 0; }
+  #editor .palette button { min-height: 30px; }
+  .palette .group[aria-label="Chord symbol"] { order: 2; }
+}

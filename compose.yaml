@@ -1,0 +1,24 @@
+# Minimal: the site, the viewer/editor and image rendering, on port 8000.
+# Saving songs online needs a sign-in proxy in front; see
+# examples/traefik-authelia.compose.yaml and the README.
+services:
+  abcroche:
+    build: .
+    image: abcroche:local
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # Absolute URLs in link previews; set it when running behind a proxy.
+      # PUBLIC_URL: https://music.example.com
+      TZ: UTC
+    volumes:
+      - abcroche-data:/data
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  abcroche-data:

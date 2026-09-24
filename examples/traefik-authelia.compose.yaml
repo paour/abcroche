@@ -1,0 +1,66 @@
+# abcroche behind Traefik, with sign-in delegated to Authelia (forward-auth).
+#
+# Assumes an existing Traefik (with a "websecure" entrypoint and a TLS
+# certificate resolver) and an "authelia" forward-auth middleware defined
+# elsewhere, both on the external "proxy" network. Change the host name.
+#
+# Three routers, one service:
+#   abcroche-read  GET /api/songs/<id>: public, so shared songs stay readable
+#   abcroche-api   the rest of /api/ (save, list, delete, me, login):
+#                  through Authelia, which sets Remote-User
+#   abcroche       everything else: public (pages get embedded elsewhere)
+# The two public routers blank the Remote-* headers so a client can't claim
+# an identity; abcroche trusts Remote-User. Other forward-auth proxies
+# (Authentik, oauth2-proxy, ...) work the same way: set AUTH_USER_HEADER to
+# the header they send.
+services:
+  abcroche:
+    image: ghcr.io/OWNER/abcroche:latest
+    restart: unless-stopped
+    environment:
+      PUBLIC_URL: https://music.example.com
+    volumes:
+      - abcroche-data:/data
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - proxy
+    labels:
+      traefik.enable: "true"
+      traefik.http.services.abcroche.loadbalancer.server.port: "8000"
+
+      traefik.http.middlewares.abcroche-no-identity.headers.customrequestheaders.Remote-User: ""
+      traefik.http.middlewares.abcroche-no-identity.headers.customrequestheaders.Remote-Name: ""
+      traefik.http.middlewares.abcroche-no-identity.headers.customrequestheaders.Remote-Email: ""
+      traefik.http.middlewares.abcroche-no-identity.headers.customrequestheaders.Remote-Groups: ""
+
+      traefik.http.routers.abcroche.rule: Host(`music.example.com`)
+      traefik.http.routers.abcroche.priority: "100"
+      traefik.http.routers.abcroche.entrypoints: websecure
+      traefik.http.routers.abcroche.tls.certresolver: letsencrypt
+      traefik.http.routers.abcroche.service: abcroche
+      traefik.http.routers.abcroche.middlewares: abcroche-no-identity
+
+      traefik.http.routers.abcroche-read.rule: Host(`music.example.com`) && Method(`GET`) && PathRegexp(`^/api/songs/[^/]+$`)
+      traefik.http.routers.abcroche-read.priority: "300"
+      traefik.http.routers.abcroche-read.entrypoints: websecure
+      traefik.http.routers.abcroche-read.tls.certresolver: letsencrypt
+      traefik.http.routers.abcroche-read.service: abcroche
+      traefik.http.routers.abcroche-read.middlewares: abcroche-no-identity
+
+      traefik.http.routers.abcroche-api.rule: Host(`music.example.com`) && PathPrefix(`/api/`)
+      traefik.http.routers.abcroche-api.priority: "200"
+      traefik.http.routers.abcroche-api.entrypoints: websecure
+      traefik.http.routers.abcroche-api.tls.certresolver: letsencrypt
+      traefik.http.routers.abcroche-api.service: abcroche
+      traefik.http.routers.abcroche-api.middlewares: authelia@docker
+
+volumes:
+  abcroche-data:
+
+networks:
+  proxy:
+    external: true
