@@ -78,13 +78,28 @@ jobs:
         if: env.DEPLOY_HOOK_URL != '' && env.DEPLOY_HOOK_TOKEN != ''
         run: |
           set -o pipefail
-          # Dockhand streams progress as server-sent events; keep the tail.
-          out=$(curl -sS -N --fail-with-body --max-time 900 -X POST \
-            -H "Authorization: Bearer $DEPLOY_HOOK_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{"pull":true}' "$DEPLOY_HOOK_URL")
-          echo "$out" | tail -n 20
-          if echo "$out" | grep -q '"success":false'; then
-            echo "::error::The deploy hook reported a failure"
+          auth="Authorization: Bearer $DEPLOY_HOOK_TOKEN"
+          out=$(curl -sS -N --fail-with-body --max-time 900 -X POST -H "$auth" \
+            -H "Content-Type: application/json" -d '{"pull":true}' "$DEPLOY_HOOK_URL")
+          job=$(printf '%s' "$out" | jq -r '.jobId // empty' 2>/dev/null || true)
+          if [ -z "$job" ]; then
+            # A hook that answers directly (or streams events): check its reply.
+            printf '%s\n' "$out" | tail -n 20
+            if printf '%s' "$out" | grep -q '"success":false'; then
+              echo "::error::The deploy hook reported a failure"; exit 1
+            fi
+            exit 0
+          fi
+          # Dockhand runs the deploy as a background job: follow it to the end.
+          jobs_url="${DEPLOY_HOOK_URL%%/api/*}/api/jobs/$job"
+          for _ in $(seq 1 90); do
+            st=$(curl -sS --fail-with-body --max-time 30 -H "$auth" "$jobs_url")
+            status=$(printf '%s' "$st" | jq -r '.status')
+            case "$status" in running|pending|queued|started) sleep 10 ;; *) break ;; esac
+          done
+          printf '%s' "$st" | jq -r '(.lines // [])[] | if type == "string" then . else tojson end' | tail -n 40
+          echo "job $job: $status"
+          if ! printf '%s' "$st" | jq -e '.result.success == true' >/dev/null; then
+            echo "::error::Deploy job $job did not succeed ($status): $(printf '%s' "$st" | jq -c '.result')"
             exit 1
           fi
