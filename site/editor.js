@@ -944,8 +944,10 @@ export async function startEdit(params) {
 
   // Piano with a range selected: transpose the passage so its first note
   // becomes the key pressed. Every note (and chord note) moves by the same
-  // number of semitones, respelled in the key; working left to right, each
-  // note's accidental is written against the already-moved notes before it.
+  // number of semitones. New notes are spelled as written (in the key shown,
+  // which differs from the concert key in a B♭/E♭ part), like a single note
+  // from the piano; working left to right, each note's accidental is written
+  // against the already-moved notes before it.
   function transposeRange(writtenMidi) {
     const t = text();
     const x = tr();
@@ -954,7 +956,7 @@ export async function startEdit(params) {
     const delta = writtenMidi - x.semis - T.midiOf(first.p.letter, first.p.octave, first.alter);
     preview(writtenMidi - x.semis);
     if (!delta) return;
-    const flats = T.prefersFlats(T.getField(t, "K") || "C");
+    const flats = T.prefersFlats(T.writtenKey(T.getField(t, "K") || "C", x.semis));
     const notes = elements(["note"]).filter((e) => e.startChar >= sel.start && e.endChar <= sel.end)
       .sort((a, b) => a.startChar - b.startChar);
     let next = t;
@@ -965,7 +967,9 @@ export async function startEdit(params) {
       if (!n || !notePitches(n).length) continue;
       const at = e.startChar + shift;
       const moved = (p) => {
-        const sp = T.spellMidi(T.midiOf(p.letter, p.octave, alterAt(p, e.startChar, t)) + delta, flats);
+        const concert = T.midiOf(p.letter, p.octave, alterAt(p, e.startChar, t)) + delta;
+        const w = T.spellMidi(concert + x.semis, flats);
+        const sp = T.toConcert(w.letter, w.octave, w.alter, x);
         const acc = T.accidentalFor(T.contextAt(next, at), sp.letter, sp.octave, sp.alter);
         return T.pitchToAbc({ letter: sp.letter, octave: sp.octave, acc });
       };
