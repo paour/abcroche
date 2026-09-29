@@ -131,6 +131,14 @@ For text in PNG images, install the Liberation fonts
 Pushes to `main` run the tests and publish a multi-arch image
 (`linux/amd64`, `linux/arm64`) to the GitHub Container Registry.
 
+**Automatic deploys (optional).** After publishing, CI can tell your server
+to pull the new image: set a repository variable `DEPLOY_HOOK_URL` and a
+secret `DEPLOY_HOOK_TOKEN`, and the `deploy` job POSTs `{"pull": true}` there
+with the token as a bearer token. With [Dockhand](https://dockhand.pro), use
+`https://<dockhand>/api/stacks/<stack>/deploy` and a Dockhand API token; if
+Dockhand sits behind a sign-in proxy, let only that one `POST` through.
+Without the two settings the job does nothing.
+
 ## Limitations
 
 - The visual editor is built for single-line melodies (lead sheets, folk

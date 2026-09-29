@@ -60,3 +60,31 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # Optional: tell your server to pull the new image and redeploy. Runs only
+  # when the repository defines a DEPLOY_HOOK_URL variable and a
+  # DEPLOY_HOOK_TOKEN secret (forks and other users skip it). It POSTs
+  # {"pull": true} with the token as a bearer token, which suits Dockhand's
+  # POST /api/stacks/<name>/deploy; any endpoint that accepts that works.
+  deploy:
+    needs: image
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_HOOK_URL: ${{ vars.DEPLOY_HOOK_URL }}
+      DEPLOY_HOOK_TOKEN: ${{ secrets.DEPLOY_HOOK_TOKEN }}
+    steps:
+      - name: Deploy hook
+        if: env.DEPLOY_HOOK_URL != '' && env.DEPLOY_HOOK_TOKEN != ''
+        run: |
+          set -o pipefail
+          # Dockhand streams progress as server-sent events; keep the tail.
+          out=$(curl -sS -N --fail-with-body --max-time 900 -X POST \
+            -H "Authorization: Bearer $DEPLOY_HOOK_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"pull":true}' "$DEPLOY_HOOK_URL")
+          echo "$out" | tail -n 20
+          if echo "$out" | grep -q '"success":false'; then
+            echo "::error::The deploy hook reported a failure"
+            exit 1
+          fi
