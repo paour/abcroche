@@ -116,6 +116,7 @@ export async function startEdit(params) {
   let typingGroupAt = 0;
   let lastText = "";
   let lastNoteClick = 0;
+  let extendMode = false; // the Sel button: taps extend the selection, like Shift
   let tuneId = null;     // library id of the open tune; null until first saved
   let account = null;    // { user, name } when signed in through the proxy
   let server = null;     // { id, abc }: the online song this tune is linked to, as last saved
@@ -155,7 +156,8 @@ export async function startEdit(params) {
   );
   $("palette-bars").append(
     ...BARS.map((b) => el("button", { type: "button", class: "bar-btn", title: b.title, onclick: () => insertMark(b.abc) }, b.label)),
-    el("button", { type: "button", title: "New line of music", onclick: () => insertMark("\n") }, "↵ Line"),
+    el("button", { type: "button", title: "New line of music", "aria-label": "New line", onclick: () => insertMark("\n") },
+      "↵", el("span", { class: "long" }, " Line")),
   );
 
   const chordInput = $("chord");
@@ -585,18 +587,26 @@ export async function startEdit(params) {
       return;
     }
     status.classList.remove("error");
+    // Same rule as the stylesheet uses to show the edit buttons (Sel, Esc, …).
+    const touch = !matchMedia("(pointer: fine) and (min-width: 721px)").matches;
     if (isRange()) {
       const els = selectedElements();
       const notes = els.filter((e) => e.el_type === "note").length;
       const bars = els.filter((e) => e.el_type === "bar").length;
       msg = `Selected: ${notes} note${notes === 1 ? "" : "s"}${bars ? ` and ${bars} bar line${bars === 1 ? "" : "s"}` : ""}. ` +
-        "↑/↓ move them; lengths, ♯♭♮ and Rest apply to all; Ctrl+C/X/V copy, cut, paste; Delete removes them; Esc to add notes after.";
+        (touch
+          ? "The piano transposes them from the first note; drag one to move them all; lengths, ♯♭♮ and Rest apply to all; ⌫ removes them; Esc to add notes after."
+          : "The piano transposes them from the first note, ↑/↓ move them; lengths, ♯♭♮ and Rest apply to all; Ctrl+C/X/V copy, cut, paste; Delete removes them; Esc to add notes after.");
     } else if (isBarSel()) {
       const b = T.parseBarText(text().slice(sel.start, sel.end));
       msg = `Selected: bar line ${b.bar}${b.ending ? " with ending " + b.ending : ""}. Pick a bar type below to change it, 1./2. for an ending, Delete removes it, Esc to add notes after it.`;
     } else if (sel) {
       const n = T.parseNoteText(text().slice(sel.start, sel.end));
-      msg = `Selected: ${describe(n, sel.start)}. Shift+click or Shift+←/→ selects more. Piano changes its pitch, ↑/↓ moves it, Delete removes it, Esc to add notes after it.`;
+      msg = `Selected: ${describe(n, sel.start)}. ` + (touch
+        ? `${extendMode ? "Tap another note to select up to it." : "Sel, then tap another note, selects more."} Piano changes its pitch, drag it to move it, ⌫ removes it, Esc to add notes after it.`
+        : "Shift+click or Shift+←/→ selects more. Piano changes its pitch, ↑/↓ moves it, Delete removes it, Esc to add notes after it.");
+    } else if (extendMode) {
+      msg = "Sel is on: tap the first note, then the last one.";
     } else if (!elements(["note"]).length) {
       msg = "Pick a length, then play notes on the keyboard below (or type the letters A–G).";
     } else {
@@ -643,9 +653,16 @@ export async function startEdit(params) {
   function onScoreClick(abcelem, tuneNumber, classes, analysis, drag, ev) {
     if (!abcelem) return;
     // Shift+click extends the selection to here (a contiguous range).
-    if (ev && ev.shiftKey && sel && (abcelem.el_type === "note" || abcelem.el_type === "bar")) {
+    if (((ev && ev.shiftKey) || extendMode) && sel && (abcelem.el_type === "note" || abcelem.el_type === "bar")) {
       lastNoteClick = performance.now();
       extendTo(abcelem.startChar);
+      return;
+    }
+    // Dragging a note that's part of the selected range moves the whole range.
+    if (isRange() && drag && drag.step && abcelem.el_type === "note" &&
+        abcelem.startChar >= sel.start && abcelem.endChar <= sel.end) {
+      lastNoteClick = performance.now();
+      moveSelected(-drag.step);
       return;
     }
     if (abcelem.el_type === "bar") {
@@ -692,6 +709,16 @@ export async function startEdit(params) {
     sel = null;
     render();
   }
+
+  // Esc (key or button): drop the selection and leave extend mode.
+  function escape() {
+    if (extendMode) { extendMode = false; syncUi(); }
+    deselect();
+  }
+
+  // Touch screens have no Shift or Esc key: the Sel and Esc buttons stand in.
+  $("sel-mode").addEventListener("click", () => { extendMode = !extendMode; syncUi(); updateStatus(); });
+  $("esc").addEventListener("click", () => { if (!closeOverlays()) escape(); });
 
   function selectNeighbour(delta) {
     leaveBar();
@@ -895,9 +922,72 @@ export async function startEdit(params) {
     } catch (e) { /* no audio: fine */ }
   }
 
+  // The pitches of a note or [chord] as written in the text: [{ letter, octave, acc }].
+  function notePitches(n) {
+    if (n.chord) return T.chordPitches(n.chord);
+    if (!n.letter || n.letter === "z" || n.letter === "x") return [];
+    return [T.parsePitch((n.acc || "") + n.letter + n.marks)];
+  }
+
+  // Sounding alteration of a written pitch at a position in `txt`.
+  const alterAt = (p, pos, txt) => (p.acc ? T.accAlter(p.acc) : T.impliedAlter(T.contextAt(txt, pos), p.letter, p.octave));
+
+  // The first pitched note of the selected range: { p, alter }.
+  function firstPitch() {
+    for (const e of elements(["note"]).filter((x) => x.startChar >= sel.start && x.endChar <= sel.end)) {
+      const n = T.parseNoteText(text().slice(e.startChar, e.endChar));
+      const ps = n ? notePitches(n) : [];
+      if (ps.length) return { p: ps[0], alter: alterAt(ps[0], e.startChar, text()) };
+    }
+    return null;
+  }
+
+  // Piano with a range selected: transpose the passage so its first note
+  // becomes the key pressed. Every note (and chord note) moves by the same
+  // number of semitones, respelled in the key; working left to right, each
+  // note's accidental is written against the already-moved notes before it.
+  function transposeRange(writtenMidi) {
+    const t = text();
+    const x = tr();
+    const first = firstPitch();
+    if (!first) return;
+    const delta = writtenMidi - x.semis - T.midiOf(first.p.letter, first.p.octave, first.alter);
+    preview(writtenMidi - x.semis);
+    if (!delta) return;
+    const flats = T.prefersFlats(T.getField(t, "K") || "C");
+    const notes = elements(["note"]).filter((e) => e.startChar >= sel.start && e.endChar <= sel.end)
+      .sort((a, b) => a.startChar - b.startChar);
+    let next = t;
+    let shift = 0;
+    for (const e of notes) {
+      const orig = t.slice(e.startChar, e.endChar);
+      const n = T.parseNoteText(orig);
+      if (!n || !notePitches(n).length) continue;
+      const at = e.startChar + shift;
+      const moved = (p) => {
+        const sp = T.spellMidi(T.midiOf(p.letter, p.octave, alterAt(p, e.startChar, t)) + delta, flats);
+        const acc = T.accidentalFor(T.contextAt(next, at), sp.letter, sp.octave, sp.alter);
+        return T.pitchToAbc({ letter: sp.letter, octave: sp.octave, acc });
+      };
+      let updated;
+      if (n.chord) {
+        updated = { ...n, chord: n.chord.replace(/(\^\^|\^|__|_|=)?([A-Ga-g])([,']*)/g, (all) => moved(T.parsePitch(all))) };
+      } else {
+        const abc = moved(notePitches(n)[0]);
+        updated = { ...n, acc: (abc.match(/^[\^_=]+/) || [null])[0], letter: abc.replace(/^[\^_=]+/, "").replace(/[,']+$/, ""), marks: abc.match(/[,']*$/)[0] };
+      }
+      const s2 = T.noteTextToAbc(updated);
+      next = next.slice(0, at) + s2 + next.slice(at + orig.length);
+      shift += s2.length - orig.length;
+    }
+    const end = sel.end + shift;
+    change(T.keepBarPitches(t, sel.end, next, end), { sel: { start: sel.start, end, kind: "range", anchor: sel.start }, cursor: end });
+  }
+
   // `midi` is the key as written (what's on the score); spell it in the
   // written key, then store the concert-pitch equivalent.
   function pianoKey(midi) {
+    if (isRange()) return transposeRange(midi);
     leaveBar();
     const t = text();
     const pos = sel ? sel.start : cursor;
@@ -914,6 +1004,19 @@ export async function startEdit(params) {
 
   // Letters typed on the computer keyboard: nearest octave to the previous note.
   function letterKey(writtenLetter) {
+    if (isRange()) {
+      // The passage moves by staff steps so its first note lands on the
+      // nearest note with this letter (as written).
+      const first = firstPitch();
+      if (!first) return;
+      const w = T.toWritten(first.p.letter, first.p.octave, first.alter, tr());
+      const from = T.LETTERS.indexOf(w.letter) + 7 * w.octave;
+      const base = T.LETTERS.indexOf(writtenLetter);
+      const to = [w.octave - 1, w.octave, w.octave + 1].map((o) => base + 7 * o)
+        .reduce((a, b) => (Math.abs(b - from) < Math.abs(a - from) ? b : a));
+      if (to !== from) moveSelected(to - from);
+      return;
+    }
     leaveBar();
     const steps = tr().steps;
     const letter = T.LETTERS[(((T.LETTERS.indexOf(writtenLetter) - steps) % 7) + 7) % 7];
@@ -1160,7 +1263,7 @@ export async function startEdit(params) {
     else if (k === "r" || k === "R" || k === "z") enterRest();
     else if (k === "|") insertMark("|");
     else if (k === "Backspace" || k === "Delete") deleteBack();
-    else if (k === "Escape") deselect();
+    else if (k === "Escape") escape();
     else if (k === "ArrowUp" && sel && !isBarSel()) moveSelected(e.shiftKey ? 7 : 1);
     else if (k === "ArrowDown" && sel && !isBarSel()) moveSelected(e.shiftKey ? -7 : -1);
     else if (k === "ArrowLeft" && e.shiftKey) extendBy(-1);
@@ -1517,6 +1620,7 @@ export async function startEdit(params) {
     partLow.setAttribute("aria-pressed", part.tr && part.low ? "true" : "false");
     partLow.disabled = !part.tr;
     namesBtns.forEach((b) => b.setAttribute("aria-pressed", b.dataset.names === names ? "true" : "false"));
+    $("sel-mode").setAttribute("aria-pressed", extendMode ? "true" : "false");
     const sol = names === "solfege";
     const partName = { "": sol ? "Ut" : "Concert", bb: sol ? "Sib" : "B♭", eb: sol ? "Mib" : "E♭" };
     partBtns.forEach((b) => { b.textContent = partName[b.dataset.tr]; });

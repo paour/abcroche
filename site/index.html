@@ -157,6 +157,7 @@ w: Twin-kle twin-kle lit-tle star</pre>
   <p id="status" aria-live="polite"></p>
 
   <div class="row palette">
+    <div class="music">
     <div class="group" id="palette-durations" role="group" aria-label="Note length"></div>
     <div class="group" id="palette-notes" role="group" aria-label="Notes"></div>
     <div class="group" id="palette-bars" role="group" aria-label="Bars"></div>
@@ -164,13 +165,16 @@ w: Twin-kle twin-kle lit-tle star</pre>
       <input id="chord" placeholder="Chord, e.g. Am7" aria-label="Chord symbol" size="9">
       <button id="chord-apply" type="button">Set</button>
     </div>
-    <div class="group" role="group" aria-label="Edit">
+    </div>
+    <div class="group edit-keys" role="group" aria-label="Edit">
       <button id="delete" type="button" title="Delete (Backspace)">⌫</button>
       <button id="undo" type="button" title="Undo (Ctrl+Z)">↶</button>
       <button id="redo" type="button" title="Redo (Ctrl+Shift+Z)">↷</button>
       <button id="copy-notes" type="button" title="Copy the selection (Ctrl+C)">Copy</button>
       <button id="cut-notes" type="button" title="Cut the selection (Ctrl+X)">Cut</button>
       <button id="paste-notes" type="button" title="Paste (Ctrl+V): replaces the selection, or goes in at the blue line">Paste</button>
+      <button id="sel-mode" type="button" aria-pressed="false" title="Select a range, like holding Shift: tap a note, turn this on, then tap another">Sel</button>
+      <button id="esc" type="button" title="Done with the selection: new notes go after it (Esc)">Esc</button>
     </div>
   </div>
 

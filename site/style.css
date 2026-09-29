@@ -258,7 +258,9 @@ html.editing, html.editing body { height: 100%; background: #f7f7f5; }
 #status.error { color: #c4291c; }
 
 .palette .group { display: inline-flex; align-items: center; gap: 3px; }
-.palette .group + .group { padding-left: 12px; border-left: 1px solid var(--line); }
+.palette .group + .group, .palette .music + .group { padding-left: 12px; border-left: 1px solid var(--line); }
+/* Wide screens: the music groups sit in the palette row like any other. */
+.palette .music { display: contents; }
 .palette button.dur { display: inline-flex; padding: 2px 6px; }
 .palette button.dot { font-weight: 800; font-size: 20px; line-height: 0.9; }
 .palette .bar-btn { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; min-width: 2.4em; }
@@ -366,18 +368,20 @@ html.editing, html.editing body { height: 100%; background: #f7f7f5; }
 
   #status { font-size: 12px; line-height: 1.3; min-height: 2.6em; }
 
-  /* Palette: compact, most-used first. */
-  .palette { gap: 4px 6px; }
-  .palette .group + .group { padding-left: 0; border-left: 0; }
-  #palette-durations { order: 1; }
-  .palette .group[aria-label="Edit"] { order: 2; margin-left: auto; }
-  #palette-notes { order: 3; }
-  #palette-bars { order: 4; }
-  .palette .group[aria-label="Chord symbol"] { order: 5; }
-  #editor .palette button { min-height: 34px; padding: 3px 7px; }
-  #editor .palette button.dur { padding: 2px 5px; }
-  .palette .bar-btn { min-width: 1.9em; }
-  #chord { width: 7.5em; }
+  /* Palette: music on the left, flowing button by button (the groups don't
+     wrap as blocks) so it packs into few rows; the stand-ins for keyboard
+     keys (⌫ ↶ ↷, Copy Cut Paste, Sel Esc) as a block on the right. */
+  .palette { display: grid; grid-template-columns: 1fr auto; gap: 3px 6px; align-items: start; }
+  .palette .music { display: flex; flex-wrap: wrap; gap: 3px; min-width: 0; }
+  .palette .music .group { display: contents; }
+  .palette .music + .group { padding-left: 0; border-left: 0; }
+  .palette .edit-keys { display: grid; grid-template-columns: repeat(3, auto); gap: 3px; }
+  #editor .palette .edit-keys button { padding: 3px 3px; font-size: 12.5px; }
+  #editor .palette button { min-height: 34px; padding: 3px 5px; }
+  #editor .palette button.dur { padding: 2px 4px; }
+  .palette .bar-btn { min-width: 1.7em; }
+  #chord { width: 3.9em; }
+  .palette .long { display: none; } /* "↵ Line" -> "↵" */
 
   /* One octave, keys wide enough for thumbs. */
   .keyboard { gap: 4px; }
@@ -435,5 +439,4 @@ html.editing, html.editing body { height: 100%; background: #f7f7f5; }
   #keys { height: 72px; }
   #status { min-height: 0; }
   #editor .palette button { min-height: 30px; }
-  .palette .group[aria-label="Chord symbol"] { order: 2; }
 }
