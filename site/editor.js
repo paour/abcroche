@@ -16,13 +16,20 @@ const NEW_TUNE = "X:1\nT:Untitled\nM:4/4\nL:1/8\nQ:1/4=100\nK:C\n";
 
 const SAMPLE = [
   "X:1",
-  "T:Speed the Plough",
+  "T:Au clair de la lune",
+  "C:Trad.",
   "M:4/4",
-  "L:1/8",
-  "Q:1/4=120",
+  "L:1/4",
+  "Q:1/4=100",
   "K:G",
-  "|:GABc dedB|dedB dedB|c2ec B2dB|c2A2 A2BA|",
-  "GABc dedB|dedB dedB|c2ec B2dB|A2F2 G4:|",
+  "G G G A | B2 A2 | G B A A | G4 |",
+  "w: Au clair de la lu-ne, mon a-mi Pier-rot,",
+  "G G G A | B2 A2 | G B A A | G4 |",
+  "w: Prê-te-moi ta plu-me pour é-crire un mot.",
+  "A A A A | E2 E2 | A G F E | D4 |",
+  "w: Ma chan-del-le~est mor-te, je n'ai plus de feu.",
+  "G G G A | B2 A2 | G B A A | G4 |]",
+  "w: Ou-vre-moi ta por-te pour l'a-mour de Dieu.",
   "",
 ].join("\n");
 
@@ -310,7 +317,8 @@ export async function startEdit(params) {
   const SHARE_CONTROLS = [
     ["opt-link", "link", "value"], ["opt-scale", "scale", "number"], ["opt-width", "width", "number"],
     ["opt-play", "play", "checked"], ["opt-transparent", "transparent", "checked"],
-    ["opt-tr", "part", "value"], ["opt-title", "title", "checked"], ["opt-tempo", "tempo", "checked"],
+    ["opt-tr", "part", "value"], ["opt-oct", "octave", "value"],
+    ["opt-title", "title", "checked"], ["opt-tempo", "tempo", "checked"],
     ["opt-editbtn", "editButton", "checked"],
   ].map(([id, key, kind]) => ({ el: $(id), key, kind }));
   for (const c of SHARE_CONTROLS) {
@@ -452,7 +460,13 @@ export async function startEdit(params) {
     const own = new URLSearchParams({ edit: "" });
     if (tuneId) own.set("t", tuneId);
     Share.shareQuery(share).forEach((v, k) => own.set(k, v));
-    history.replaceState(null, "", "?" + own.toString().replace(/^edit=/, "edit") + "#" + packed);
+    const query = (q) => "?" + q.toString().replace(/^edit=/, "edit") + "#" + packed;
+    history.replaceState(null, "", query(own));
+    // The same tune on the other server; its library is its own, so no t=.
+    if (account?.switch) {
+      own.delete("t");
+      switchLink.href = account.switch.url + "/" + query(own);
+    }
   }
 
   // Every rendered element (notes, rests, bars) with a source range, in order.
@@ -1387,7 +1401,7 @@ export async function startEdit(params) {
     redo.length = 0;
     typingGroupAt = 0;
     sel = null;
-    cursor = abc.length;
+    cursor = T.musicEnd(abc);
     pendingChord = "";
     const clef = T.getClef(T.getField(abc, "K"));
     baseOctave = clef === "bass" ? 2 : clef === "treble" ? 4 : 3;
@@ -1480,10 +1494,11 @@ export async function startEdit(params) {
   // --- Online songs (signed-in users) --------------------------------------------------------------
 
   // Only people signed in through the proxy see any of this. Songs are saved
-  // under a slug of their title ("Speed the Plough" -> speed-the-plough),
+  // under a slug of their title ("Au clair de la lune" -> au-clair-de-la-lune),
   // and anyone can then view them at /s/<slug>.
   const saveOnlineBtn = $("save-online");
   const signIn = $("sign-in");
+  const switchLink = $("switch-server");
   const onlineSection = $("online-section");
   const srvList = $("srv-list");
 
@@ -1628,7 +1643,7 @@ export async function startEdit(params) {
     const sol = names === "solfege";
     const partName = { "": sol ? "Ut" : "Concert", bb: sol ? "Sib" : "B♭", eb: sol ? "Mib" : "E♭" };
     partBtns.forEach((b) => { b.textContent = partName[b.dataset.tr]; });
-    const trName = { c: partName[""], bb: partName.bb, eb: partName.eb, "bb-low": partName.bb + " ↓8ve", "eb-low": partName.eb + " ↓8ve" };
+    const trName = { c: partName[""], bb: partName.bb, eb: partName.eb };
     for (const o of $("opt-tr").options) if (o.value) o.textContent = trName[o.value];
 
     // Signed in or not.
@@ -1637,6 +1652,11 @@ export async function startEdit(params) {
     onlineSection.hidden = !account;
     $("lib-local-heading").hidden = !account;
     $("online-user").textContent = account ? `· ${account.name}` : "";
+    switchLink.hidden = !account?.switch;
+    if (account?.switch) {
+      switchLink.textContent = account.switch.label;
+      switchLink.title = "Open this tune on " + account.switch.url;
+    }
 
     // The sharing panel shows `share` (a field being typed in is left alone).
     for (const c of SHARE_CONTROLS) {

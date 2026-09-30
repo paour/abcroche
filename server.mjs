@@ -47,6 +47,11 @@ const AUTH_USER_HEADER = (env.AUTH_USER_HEADER || "Remote-User").toLowerCase();
 const AUTH_NAME_HEADER = (env.AUTH_NAME_HEADER || "Remote-Name").toLowerCase();
 // Local development only: act as if the proxy had signed this user in.
 const DEV_USER = env.DEV_USER || "";
+// A link in the editor that opens the current tune on another abcroche (say,
+// production <-> development), shown only to the listed users.
+const SWITCH_URL = (env.SWITCH_URL || "").replace(/\/$/, "");
+const SWITCH_LABEL = env.SWITCH_LABEL || (SWITCH_URL && new URL(SWITCH_URL).host);
+const SWITCH_USERS = new Set((env.SWITCH_USERS || "").split(",").map((u) => u.trim()).filter(Boolean));
 
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 
@@ -158,7 +163,9 @@ async function handle(req, res) {
     return res.end();
   }
   if (method === "GET" && path === "/api/me") {
-    return send(res, 200, { user, name: String(req.headers[AUTH_NAME_HEADER] || user) });
+    const me = { user, name: String(req.headers[AUTH_NAME_HEADER] || user) };
+    if (SWITCH_URL && SWITCH_USERS.has(user)) me.switch = { url: SWITCH_URL, label: SWITCH_LABEL };
+    return send(res, 200, me);
   }
   if (method === "GET" && path === "/api/songs") return send(res, 200, q.list.all().map(summary));
 
@@ -439,7 +446,7 @@ async function previewTags(kind, key, params, base) {
   if (!tune.abc) return null;
   // The preview image follows the link's own display options.
   const iq = new URLSearchParams();
-  for (const k of ["tr", "low", "title", "tempo", "width"]) if (params.has(k)) iq.set(k, params.get(k));
+  for (const k of ["tr", "oct", "low", "title", "tempo", "width"]) if (params.has(k)) iq.set(k, params.get(k));
   const image = `${base}/${kind}/${encodeURIComponent(key)}.png${iq.toString() ? "?" + iq : ""}`;
   const pageUrl = `${base}/${kind}/${encodeURIComponent(key)}${params.toString() ? "?" + params : ""}`;
   const { entry } = await getImage(kind, key, "png", iq);
@@ -496,6 +503,11 @@ const server = http.createServer((req, res) => {
   const tunePage = pathname.match(/^\/([st])\/([^/.]+)$/);
   if (tunePage && (req.method === "GET" || req.method === "HEAD")) {
     return void servePreviewPage(req, res, tunePage[1], tunePage[2], url.searchParams).catch(oops);
+  }
+  // The bare address is the editor, which resumes the latest tune.
+  if (pathname === "/" && !url.searchParams.has("edit") && (req.method === "GET" || req.method === "HEAD")) {
+    res.writeHead(302, { Location: "/?edit" });
+    return res.end();
   }
   if (!pathname.startsWith("/api/")) {
     try { serveStatic(req, res, pathname); } catch (e) { oops(e); }

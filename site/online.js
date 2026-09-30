@@ -40,7 +40,7 @@ export function signInUrl(next) {
   return "/api/login?next=" + encodeURIComponent(next);
 }
 
-// "Speed the Plough" -> "speed-the-plough"; "Café Noël" -> "cafe-noel".
+// "Au clair de la lune" -> "au-clair-de-la-lune"; "Café Noël" -> "cafe-noel".
 export function slugify(title) {
   return String(title || "")
     .normalize("NFKD").replace(/[̀-ͯ]/g, "")

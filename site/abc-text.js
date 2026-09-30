@@ -65,6 +65,16 @@ export function bodyStart(text) {
 }
 
 // A tune the editor can append to: X, T, M, L, K present.
+// Where new notes go by default: the end of the music, before any trailing
+// field lines (w: lyrics under the last line, W: verses…) and blank lines.
+export function musicEnd(text) {
+  const lines = text.split("\n");
+  const start = headerSpan(lines);
+  let n = lines.length;
+  while (n > start && (lines[n - 1].trim() === "" || /^[A-Za-z]:/.test(lines[n - 1]))) n--;
+  return n > start ? lines.slice(0, n).join("\n").length : text.length;
+}
+
 export function ensureSkeleton(text) {
   let t = text;
   if (getField(t, "X") == null) t = setField(t, "X", "1");
@@ -309,10 +319,12 @@ export function withChordSymbol(n, symbol) {
 }
 
 // Blank out things whose contents could look like notes or bar lines:
-// chord symbols, decorations, inline fields, comments, grace notes, voltas.
+// chord symbols, decorations, inline fields, field lines in the body (w:
+// lyrics…), comments, grace notes, voltas.
 // Offsets are preserved, and "[|" keeps its bar character.
 function mask(s) {
   return s
+    .replace(/^[A-Za-z]:[^\n]*/gm, (x) => " ".repeat(x.length))
     .replace(/"[^"]*"|![^!]*!|\+[^+]*\+|\[[A-Za-z]:[^\]]*\]|%[^\n]*|\{[^}]*\}|\[\d[\d,-]*/g, (x) => " ".repeat(x.length))
     .replace(/\[\|/g, " |");
 }

@@ -31,6 +31,7 @@
         <button id="toggle-source" type="button" class="quiet" aria-pressed="false">ABC source</button>
         <button id="save-online" type="button" class="primary" hidden title="Save to this server under a name made from the title">Save online</button>
         <a id="sign-in" class="quiet-link" hidden>Sign in</a>
+        <a id="switch-server" class="quiet-link" hidden></a>
       </div>
       <button id="more" type="button" class="quiet phone-only" aria-expanded="false" aria-controls="more-sheet" aria-label="More options">⋯</button>
     </div>
@@ -206,8 +207,13 @@ w: Twin-kle twin-kle lit-tle star</pre>
         <option value="c">Concert</option>
         <option value="bb">B♭</option>
         <option value="eb">E♭</option>
-        <option value="bb-low">B♭ ↓8ve</option>
-        <option value="eb-low">E♭ ↓8ve</option>
+      </select></label>
+    <label title="Shift the link's notes an octave; “As shown” follows the editor's ↓ 8ve">Octave
+      <select id="opt-oct">
+        <option value="">As shown</option>
+        <option value="1">↑ 8ve</option>
+        <option value="0">None</option>
+        <option value="-1">↓ 8ve</option>
       </select></label>
     <label><input id="opt-title" type="checkbox" checked> Title</label>
     <label><input id="opt-tempo" type="checkbox" checked> Tempo</label>

@@ -30,14 +30,14 @@ links that unfurl with the score.
 docker run -d -p 8000:8000 -v abcroche-data:/data ghcr.io/paour/abcroche:latest
 ```
 
-Open <http://localhost:8000/?edit>. Or with Compose: `docker compose up -d`
+Open <http://localhost:8000> (the editor). Or with Compose: `docker compose up -d`
 (see [`compose.yaml`](compose.yaml)).
 
 ## Links
 
 | URL | What |
 | --- | --- |
-| `/?edit` | The editor |
+| `/?edit` | The editor (`/` redirects here) |
 | `/t/<tune>` | The score of a tune packed into the link (compressed, about 3× shorter than the ABC) |
 | `/s/<song>` | The score of a saved song, always its latest version |
 | `/t/<tune>.svg`, `.png` | The same as an image (and `/s/<song>.svg`, `.png`) |
@@ -50,7 +50,7 @@ image, then **Copy link**). Pages and images take these options:
 | `play=1` | Playback control (pages) |
 | `editbtn=1` | A small ✎ that opens the tune in the editor (pages) |
 | `tr=bb`, `tr=eb`, `tr=c` | Written for a B♭ or E♭ instrument, or concert pitch |
-| `low=1` | With `tr=bb`/`eb`: an octave lower |
+| `oct=1`, `oct=-1` | An octave up or down (any part) |
 | `title=0`, `tempo=0` | Hide the title or the tempo marking |
 | `width=500` | Staff width in pixels (where lines wrap) |
 | `scale=1.5` | Size |
@@ -70,6 +70,9 @@ All optional, through environment variables:
 | `IMAGE_CACHE_MAX_FILES` | `10000` | Rendered-image cache limit (count) |
 | `IMAGE_CACHE_MAX_BYTES` | `1073741824` | Rendered-image cache limit (bytes) |
 | `FONT_DIR` | auto | Where the Liberation fonts are, for text in PNGs |
+| `SWITCH_URL` | — | Another abcroche (say, production ↔ development): the editor gets a link that opens the current tune there |
+| `SWITCH_LABEL` | its host | The link's text |
+| `SWITCH_USERS` | — | Comma-separated users who see that link (signed in through the proxy) |
 | `DEV_USER` | — | Local development only: treat every request as signed in as this user |
 
 Rendered images are cached in memory. The cache never evicts: once it reaches
@@ -98,7 +101,7 @@ header, which forces a CORS preflight that abcroche never grants.
 [`examples/traefik-authelia.compose.yaml`](examples/traefik-authelia.compose.yaml)
 is a complete Traefik + Authelia setup. When a signed-in user visits the editor,
 a **Save online** button appears; songs are saved under a name made from their
-title (`/s/speed-the-plough`).
+title (`/s/au-clair-de-la-lune`).
 
 Pages are meant to be embedded, so abcroche sends no `X-Frame-Options` or
 `frame-ancestors`. Its Content-Security-Policy only allows its own scripts.
